@@ -1,0 +1,283 @@
+	<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 喵喵花园 - 离线版</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap');
+        body { font-family: 'Noto Sans SC', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .active-tab { color: #059669; transform: scale(1.1); }
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen flex justify-center">
+
+    <div id="app" class="w-full max-w-md bg-white shadow-xl flex flex-col h-screen relative overflow-hidden">
+        <!-- Header -->
+        <header class="bg-emerald-600 text-white p-4 shadow-md flex justify-between items-center z-10">
+            <div class="flex items-center space-x-2">
+                <i data-lucide="leaf" class="w-6 h-6"></i>
+                <h1 class="text-xl font-bold tracking-wider">AI 喵喵花园</h1>
+            </div>
+            <div class="text-emerald-100 text-sm">离线纯享版</div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main id="main-content" class="flex-1 overflow-y-auto bg-gray-50 pb-24">
+            <!-- Content will be injected here -->
+        </main>
+
+        <!-- Bottom Navigation -->
+        <nav class="absolute bottom-0 w-full bg-white border-t border-gray-200 flex justify-around p-2 safe-bottom shadow-[0_-2px_10px_rgba(0,0,0,0.05)] z-20">
+            <button onclick="switchTab('archive')" id="nav-archive" class="flex flex-col items-center justify-center w-16 h-14 rounded-xl transition-all text-gray-400">
+                <i data-lucide="camera" class="w-6 h-6"></i>
+                <span class="text-[10px] font-medium">档案</span>
+            </button>
+            <button onclick="switchTab('care')" id="nav-care" class="flex flex-col items-center justify-center w-16 h-14 rounded-xl transition-all text-gray-400">
+                <i data-lucide="droplets" class="w-6 h-6"></i>
+                <span class="text-[10px] font-medium">养护</span>
+            </button>
+            <button onclick="switchTab('clinic')" id="nav-clinic" class="flex flex-col items-center justify-center w-16 h-14 rounded-xl transition-all text-gray-400">
+                <i data-lucide="stethoscope" class="w-6 h-6"></i>
+                <span class="text-[10px] font-medium">医院</span>
+            </button>
+            <button onclick="switchTab('community')" id="nav-community" class="flex flex-col items-center justify-center w-16 h-14 rounded-xl transition-all text-gray-400">
+                <i data-lucide="users" class="w-6 h-6"></i>
+                <span class="text-[10px] font-medium">社区</span>
+            </button>
+        </nav>
+    </div>
+
+    <script>
+        // --- 数据管理 ---
+        let state = {
+            activeTab: 'archive',
+            archives: JSON.parse(localStorage.getItem('mygo_archives')) || [
+                { id: 1, name: "抹茶薄荷", date: "2026-04-01", desc: "颜色像抹茶。乐奈很喜欢。", image: "https://images.unsplash.com/photo-1600185987625-fbbdb1d8cb0c?w=400" }
+            ],
+            posts: [
+                { id: 1, author: "要乐奈", avatar: "🐱", content: "想吃抹茶芭菲...", image: "https://images.unsplash.com/photo-1496062031456-07b8f162a322?w=400", likes: 12, liked: false }
+            ]
+        };
+
+        // --- 核心逻辑 ---
+        function switchTab(tab) {
+            state.activeTab = tab;
+            render();
+        }
+
+        function saveArchives() {
+            localStorage.setItem('mygo_archives', JSON.stringify(state.archives));
+        }
+
+        // --- 渲染函数 ---
+        function render() {
+            const container = document.getElementById('main-content');
+            
+            // 更新导航样式
+            ['archive', 'care', 'clinic', 'community'].forEach(t => {
+                const btn = document.getElementById(`nav-${t}`);
+                if (t === state.activeTab) {
+                    btn.classList.add('text-emerald-600', 'scale-110');
+                    btn.classList.remove('text-gray-400');
+                } else {
+                    btn.classList.remove('text-emerald-600', 'scale-110');
+                    btn.classList.add('text-gray-400');
+                }
+            });
+
+            // 渲染内容
+            if (state.activeTab === 'archive') renderArchive(container);
+            else if (state.activeTab === 'care') renderCare(container);
+            else if (state.activeTab === 'clinic') renderClinic(container);
+            else if (state.activeTab === 'community') renderCommunity(container);
+
+            lucide.createIcons();
+        }
+
+        // --- 档案页面 ---
+        function renderArchive(container) {
+            container.innerHTML = `
+                <div class="p-4 space-y-4">
+                    <button onclick="showArchiveForm()" class="w-full bg-emerald-100 text-emerald-700 py-3 rounded-2xl flex items-center justify-center gap-2 font-bold transition">
+                        <i data-lucide="plus" class="w-5 h-5"></i> 记录新花花
+                    </button>
+                    <div id="archive-list" class="space-y-4">
+                        ${state.archives.map(arch => `
+                            <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+                                <div class="flex gap-4">
+                                    <img src="${arch.image}" class="w-24 h-24 rounded-xl object-cover" onerror="this.src='https://via.placeholder.com/100?text=Flower'">
+                                    <div class="flex-1">
+                                        <h3 class="font-bold text-lg text-gray-800">${arch.name}</h3>
+                                        <p class="text-xs text-gray-400 mt-1">${arch.date}</p>
+                                        <p class="text-sm text-gray-600 mt-2">${arch.desc}</p>
+                                    </div>
+                                </div>
+                                <div class="mt-4 pt-3 border-t border-gray-50 flex justify-end">
+                                    <button onclick="downloadAsImg(${arch.id})" class="flex items-center gap-1 text-sm text-emerald-600">
+                                        <i data-lucide="download" class="w-4 h-4"></i> 保存卡片
+                                    </button>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function showArchiveForm() {
+            const container = document.getElementById('main-content');
+            container.innerHTML = `
+                <div class="p-4 animate-in slide-in-from-bottom-4">
+                    <div class="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+                        <h3 class="font-bold text-lg mb-4">新建档案</h3>
+                        <input type="file" id="file-input" accept="image/*" class="mb-4 text-sm">
+                        <input type="text" id="flower-name" placeholder="花的名字" class="w-full p-3 bg-gray-50 rounded-xl mb-3 outline-none">
+                        <textarea id="flower-desc" placeholder="写点心得..." class="w-full p-3 bg-gray-50 rounded-xl mb-4 h-24 outline-none"></textarea>
+                        <div class="flex gap-2">
+                            <button onclick="render()" class="flex-1 bg-gray-200 py-3 rounded-xl">取消</button>
+                            <button onclick="saveNewArchive()" class="flex-1 bg-emerald-500 text-white py-3 rounded-xl font-bold">保存</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function saveNewArchive() {
+            const name = document.getElementById('flower-name').value;
+            const desc = document.getElementById('flower-desc').value;
+            const file = document.getElementById('file-input').files[0];
+            
+            if (!name || !file) { alert("喵？没写完。"); return; }
+
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const newArch = {
+                    id: Date.now(),
+                    name,
+                    desc,
+                    date: new Date().toLocaleDateString(),
+                    image: e.target.result
+                };
+                state.archives.unshift(newArch);
+                saveArchives();
+                render();
+            };
+            reader.readAsDataURL(file);
+        }
+
+        // --- 养护页面 (离线逻辑) ---
+        function renderCare(container) {
+            container.innerHTML = `
+                <div class="p-4 space-y-4">
+                    <div class="bg-white p-5 rounded-2xl shadow-sm">
+                        <h2 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            <i data-lucide="leaf" class="text-emerald-500 w-5 h-5"></i> 养护查询
+                        </h2>
+                        <input type="text" id="care-input" placeholder="输入花名 (如: 仙人掌)" class="w-full p-3 bg-gray-50 rounded-xl mb-4 outline-none">
+                        <button onclick="getCareAdvice()" class="w-full bg-emerald-600 text-white py-3 rounded-xl font-bold">喵喵给建议</button>
+                    </div>
+                    <div id="care-result"></div>
+                </div>
+            `;
+        }
+
+        function getCareAdvice() {
+            const name = document.getElementById('care-input').value;
+            if (!name) return;
+            const res = document.getElementById('care-result');
+            res.innerHTML = `
+                <div class="space-y-3 animate-in slide-in-from-bottom-2">
+                    <div class="p-4 rounded-2xl bg-blue-50">
+                        <h4 class="font-bold text-blue-800 text-sm">💧 浇水</h4>
+                        <p class="text-sm text-blue-700">不要淹死它就行。土干了再浇。</p>
+                    </div>
+                    <div class="p-4 rounded-2xl bg-orange-50">
+                        <h4 class="font-bold text-orange-800 text-sm">☀️ 光照</h4>
+                        <p class="text-sm text-orange-700">它也想晒太阳，但别晒干了。</p>
+                    </div>
+                </div>
+            `;
+        }
+
+        // --- 医院页面 ---
+        function renderClinic(container) {
+            container.innerHTML = `
+                <div class="p-4 space-y-4">
+                    <div class="bg-rose-50 p-5 rounded-2xl border border-rose-100">
+                        <h2 class="font-bold text-rose-900 mb-4">花花诊所</h2>
+                        <textarea id="clinic-input" placeholder="它怎么了？叶子黄了？" class="w-full p-3 bg-white rounded-xl mb-4 outline-none h-24"></textarea>
+                        <button onclick="getClinicAdvice()" class="w-full bg-rose-500 text-white py-3 rounded-xl font-bold">医生诊断</button>
+                    </div>
+                    <div id="clinic-result"></div>
+                </div>
+            `;
+        }
+
+        function getClinicAdvice() {
+            const res = document.getElementById('clinic-result');
+            res.innerHTML = `
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-rose-100 animate-in slide-in-from-bottom-2">
+                    <h3 class="font-bold text-rose-500 mb-2">诊断：可能是太寂寞了</h3>
+                    <p class="text-sm text-gray-600">处理：多弹吉他给它听。记得少浇水。</p>
+                </div>
+            `;
+        }
+
+        // --- 社区页面 ---
+        function renderCommunity(container) {
+            container.innerHTML = `
+                <div class="p-4 space-y-4">
+                    ${state.posts.map(post => `
+                        <div class="bg-white p-4 rounded-2xl shadow-sm">
+                            <div class="flex items-center gap-3 mb-3">
+                                <div class="w-10 h-10 bg-emerald-100 rounded-full flex items-center justify-center text-lg">${post.avatar}</div>
+                                <span class="font-bold text-sm">${post.author}</span>
+                            </div>
+                            <p class="text-sm text-gray-700 mb-3">${post.content}</p>
+                            <img src="${post.image}" class="w-full h-48 object-cover rounded-xl mb-3">
+                            <div class="flex gap-4 text-gray-400">
+                                <i data-lucide="heart" class="w-5 h-5"></i>
+                                <i data-lucide="message-circle" class="w-5 h-5"></i>
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            `;
+        }
+
+        // --- 图片生成功能 ---
+        function downloadAsImg(id) {
+            const arch = state.archives.find(a => a.id === id);
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = 400; canvas.height = 500;
+            ctx.fillStyle = '#f0fdf4';
+            ctx.fillRect(0, 0, 400, 500);
+            ctx.fillStyle = '#059669';
+            ctx.font = 'bold 24px sans-serif';
+            ctx.fillText(arch.name, 20, 50);
+            ctx.fillStyle = '#666';
+            ctx.font = '16px sans-serif';
+            ctx.fillText(arch.date, 20, 80);
+            ctx.fillText(arch.desc, 20, 450);
+            
+            const img = new Image();
+            img.onload = () => {
+                ctx.drawImage(img, 20, 100, 360, 300);
+                const link = document.createElement('a');
+                link.download = 'flower.png';
+                link.href = canvas.toDataURL();
+                link.click();
+            };
+            img.src = arch.image;
+        }
+
+        // 初始化
+        window.onload = render;
+    </script>
+</body>
+</html>
