@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>AI养花 · 植物科学养护</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600;14..32,700&display=swap');
+        * { font-family: 'Inter', system-ui, -apple-system, sans-serif; }
+        body { background-color: #f5f7f0; -webkit-tap-highlight-color: transparent; }
+        .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+        .ai-content p { margin-bottom: 0.5rem; line-height: 1.5; font-size: 0.875rem; }
+        .ai-content ul { list-style-type: disc; padding-left: 1.25rem; margin-bottom: 0.75rem; }
+        .ai-content li { margin-bottom: 0.2rem; }
+        .fade-enter { animation: fadeIn 0.2s ease; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+        .modal-mask { background: rgba(0,0,0,0.5); backdrop-filter: blur(3px); }
+        .history-item { transition: all 0.1s ease; }
+        .history-item:hover { background-color: #eef2ff; }
+    </style>
+</head>
+<body class="min-h-screen flex justify-center items-center">
+
+<div id="app" class="w-full max-w-md bg-white shadow-2xl flex flex-col h-screen relative overflow-hidden rounded-none md:rounded-3xl">
+    <header class="bg-white/90 backdrop-blur-sm border-b border-emerald-100/60 p-4 flex justify-between items-center z-30 sticky top-0">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-emerald-700 rounded-xl flex items-center justify-center shadow-sm">
+                <i data-lucide="flower-2" class="text-white w-5 h-5"></i>
+            </div>
+            <h1 class="text-lg font-bold text-slate-800 tracking-tight">AI养花</h1>
+        </div>
+        <div class="flex items-center gap-2">
+            <button id="apiKeyBtn" class="bg-slate-100 p-2 rounded-full hover:bg-slate-200 transition">
+                <i data-lucide="key" class="w-4 h-4 text-slate-500"></i>
+            </button>
+            <div class="bg-emerald-50 px-2.5 py-1.5 rounded-full text-[10px] text-emerald-800 font-medium flex items-center gap-1.5">
+                <span class="relative flex h-2 w-2">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-60"></span>
+                    <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                </span>
+                智谱AI · 联网精答
+            </div>
+        </div>
+    </header>
+
+    <main id="main-content" class="flex-1 overflow-y-auto pb-24 bg-gradient-to-b from-slate-50 to-white custom-scroll"></main>
+
+    <nav class="absolute bottom-0 w-full bg-white/90 backdrop-blur-md border-t border-slate-100 flex justify-around p-2 safe-bottom shadow-[0_-4px_12px_-2px_rgba(0,0,0,0.05)] z-40">
+        <button onclick="switchTab('archive')" id="nav-archive" class="nav-item flex flex-col items-center gap-0.5 transition-all duration-200 text-slate-400">
+            <i data-lucide="database" class="w-5 h-5"></i>
+            <span class="text-[10px] font-medium">档案库</span>
+        </button>
+        <button onclick="switchTab('care')" id="nav-care" class="nav-item flex flex-col items-center gap-0.5 transition-all duration-200 text-slate-400">
+            <i data-lucide="thermometer-sun" class="w-5 h-5"></i>
+            <span class="text-[10px] font-medium">智能养护</span>
+        </button>
+        <button onclick="switchTab('clinic')" id="nav-clinic" class="nav-item flex flex-col items-center gap-0.5 transition-all duration-200 text-slate-400">
+            <i data-lucide="microscope" class="w-5 h-5"></i>
+            <span class="text-[10px] font-medium">病理诊断</span>
+        </button>
+        <button onclick="switchTab('community')" id="nav-community" class="nav-item flex flex-col items-center gap-0.5 transition-all duration-200 text-slate-400">
+            <i data-lucide="globe" class="w-5 h-5"></i>
+            <span class="text-[10px] font-medium">交流区</span>
+        </button>
+    </nav>
+</div>
+
+<div id="toast" class="fixed bottom-28 left-1/2 -translate-x-1/2 bg-slate-900 text-white px-5 py-2.5 rounded-full text-xs font-medium opacity-0 transition-all pointer-events-none z-50 shadow-xl whitespace-nowrap"></div>
+
+<div id="apiModal" class="fixed inset-0 z-50 hidden items-center justify-center px-4 modal-mask transition-all" onclick="if(event.target===this) closeApiModal()">
+    <div class="bg-white rounded-3xl w-full max-w-sm p-6 shadow-2xl">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="font-bold text-slate-800">🔑 智谱AI API Key</h3>
+            <button onclick="closeApiModal()" class="text-slate-400"><i data-lucide="x" class="w-5 h-5"></i></button>
+        </div>
+        <p class="text-xs text-slate-500 mb-3">已内置测试Key，亦可自行更换</p>
+        <input type="password" id="apiKeyInput" placeholder="your-api-key" class="w-full p-3 bg-slate-50 rounded-xl border text-sm">
+        <div class="flex gap-3 mt-5">
+            <button onclick="saveApiKey()" class="flex-1 bg-emerald-700 text-white py-2.5 rounded-xl text-sm font-semibold">保存</button>
+            <button onclick="closeApiModal()" class="flex-1 border border-slate-200 py-2.5 rounded-xl text-sm">取消</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // ---------- 全局状态 ----------
+    let state = {
+        activeTab: 'care',
+        archives: JSON.parse(localStorage.getItem('v2_archives')) || [],
+        posts: JSON.parse(localStorage.getItem('v2_posts')) || [
+            { id: 1, author: "🌿 管理员", content: "科学养护从观察开始。", likes: 12, liked: false, comments: [{ text: "很实用", time: "2025-02-18" }] }
+        ]
+    };
+    let apiKey = localStorage.getItem('zhipu_api_key') || "38540ce0f36e4bb4bcf7781ac414067c.sKOg3JxG72vOUByu";
+    
+    // 历史记录 (每个tab独立)
+    let careHistory = JSON.parse(localStorage.getItem('care_history')) || [];
+    let clinicHistory = JSON.parse(localStorage.getItem('clinic_history')) || [];
+    
+    // 未提交输入暂存 (切换tab保存)
+    let unsavedCareInputs = { name: '', temp: '22', region: '南方', humidity: '中性', stage: '成长期' };
+    let unsavedClinicInputs = { symptom: '', temp: '', region: '南方', humidity: '中性', stage: '' };
+    
+    // 精简版系统提示 + 强制个性化+联网
+    const SYSTEM_PROMPT = `你是植物养护专家。回答必须极度精简，只保留核心数据和可操作步骤。要求：
+1. 首先分析用户提供的个性化信息（植物名、温度、地区、湿度、生长阶段），再联网搜索补充。
+2. 回答结构：分2-4个小点，每点不超过20字。总字数控制在150字以内。
+3. 禁止任何比喻、感叹词、表情符号（🐱彩蛋除外）。语气冷静专业。
+4. 末尾添加一句极短猫咪彩蛋（🐱+ 一句话，不超过10字）。
+5. 如果信息不足，直接追问缺失项，不要罗列假设。`;
+    
+    function showToast(msg, dur=2000) {
+        let t = document.getElementById('toast');
+        t.innerText = msg;
+        t.style.opacity = '1';
+        setTimeout(() => t.style.opacity = '0', dur);
+    }
+    
+    // 智谱AI调用 (联网)
+    async function callAI(userQuery) {
+        if (!apiKey || apiKey.trim() === "") {
+            showToast("请先配置API Key", 2500);
+            throw new Error("No API Key");
+        }
+        const body = {
+            model: "glm-4-flash",
+            messages: [
+                { role: "system", content: SYSTEM_PROMPT },
+                { role: "user", content: userQuery }
+            ],
+            temperature: 0.3,
+            max_tokens: 800,
+            tools: [{ type: "web_search", web_search: { enable: true } }]
+        };
+        try {
+            let res = await fetch("https://open.bigmodel.cn/api/paas/v4/chat/completions", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${apiKey}` },
+                body: JSON.stringify(body)
+            });
+            if (!res.ok) {
+                let err = await res.json().catch(()=>({}));
+                throw new Error(err.error?.message || err.msg || `HTTP ${res.status}`);
+            }
+            let data = await res.json();
+            let text = data.choices[0].message.content;
+            // 清理多余符号
+            text = text.replace(/😊|🤖|🌟|✨|🎉|💡|👉|📌/g, '');
+            if (!text.includes('🐱')) text += "\n🐱 喵~ 记得浇水";
+            return text;
+        } catch(e) {
+            console.error(e);
+            return `❌ 分析失败: ${e.message}`;
+        }
+    }
+    
+    function switchTab(tab) {
+        // 保存当前页面未提交的输入内容
+        if (state.activeTab === 'care') saveUnsavedCareInputs();
+        if (state.activeTab === 'clinic') saveUnsavedClinicInputs();
+        state.activeTab = tab;
+        render();
+    }
+    
+    function render() {
+        let container = document.getElementById('main-content');
+        document.querySelectorAll('.nav-item').forEach(btn => {
+            let id = btn.id?.replace('nav-', '');
+            if (id === state.activeTab) {
+                btn.className = "nav-item flex flex-col items-center gap-0.5 text-emerald-700 font-semibold scale-105";
+                btn.querySelector('i')?.setAttribute('stroke-width', '2.5');
+            } else {
+                btn.className = "nav-item flex flex-col items-center gap-0.5 text-slate-400";
+                btn.querySelector('i')?.setAttribute('stroke-width', '1.8');
+            }
+        });
+        if (state.activeTab === 'archive') renderArchive(container);
+        else if (state.activeTab === 'care') renderCare(container);
+        else if (state.activeTab === 'clinic') renderClinic(container);
+        else if (state.activeTab === 'community') renderCommunity(container);
+        lucide.createIcons();
+    }
+    
+    // ---------- 档案库 (简化) ----------
+    function renderArchive(container) {
+        container.innerHTML = `
+            <div class="p-5">
+                <div class="flex justify-between items-end mb-5"><div><h2 class="text-2xl font-bold">🌱 植物档案</h2></div><button onclick="showArchiveForm()" class="bg-emerald-600 text-white p-3 rounded-2xl"><i data-lucide="plus-circle"></i></button></div>
+                <div class="space-y-3">${state.archives.length===0?'<div class="text-center text-slate-300">暂无档案</div>':state.archives.map(a=>`<div class="bg-white rounded-2xl p-3 flex gap-3 shadow-sm"><img src="${a.image||'https://placehold.co/80x80?text=🌿'}" class="w-16 h-16 rounded-xl object-cover"><div><div class="font-bold">${escapeHtml(a.name)}</div><div class="text-xs text-slate-400">${a.date}</div><p class="text-xs">${escapeHtml(a.desc||'')}</p></div><button onclick="deleteArchive(${a.id})" class="ml-auto text-red-300"><i data-lucide="trash-2" class="w-4"></i></button></div>`).join('')}</div>
+            </div>`;
+    }
+    window.showArchiveForm = function() {
+        let c = document.getElementById('main-content');
+        c.innerHTML = `<div class="p-5"><div class="bg-white p-5 rounded-2xl"><div class="flex justify-between"><h3>新建档案</h3><button onclick="render()"><i data-lucide="x"></i></button></div>
+        <div class="h-32 bg-slate-100 rounded-xl border-dashed border-2 flex items-center justify-center cursor-pointer mt-2" onclick="document.getElementById('archFile').click()"><div id="archPrev">📷 添加图片</div><input id="archFile" type="file" class="hidden" accept="image/*" onchange="previewImg(this,'archPrev')"></div>
+        <input id="archName" placeholder="名称" class="w-full p-2 bg-slate-50 rounded-lg mt-3"><textarea id="archDesc" placeholder="备注" class="w-full p-2 bg-slate-50 rounded-lg mt-2 h-20"></textarea>
+        <button onclick="saveArchive()" class="w-full bg-emerald-600 text-white py-2 rounded-xl mt-3">保存</button></div></div>`;
+        lucide.createIcons();
+    };
+    window.saveArchive = function() {
+        let name = document.getElementById('archName')?.value;
+        let desc = document.getElementById('archDesc')?.value;
+        let img = document.querySelector('#archPrev img')?.src;
+        if(!name && !desc && !img) return showToast("至少填一项");
+        state.archives.unshift({ id: Date.now(), name: name||"无名", desc: desc||"", image: img||null, date: new Date().toISOString().slice(0,10) });
+        localStorage.setItem('v2_archives', JSON.stringify(state.archives));
+        render(); showToast("已归档");
+    };
+    window.deleteArchive = (id) => { state.archives = state.archives.filter(a=>a.id!==id); localStorage.setItem('v2_archives', JSON.stringify(state.archives)); render(); };
+    
+    // ---------- 智能养护 (带历史、三档湿度、输入暂存) ----------
+    function saveUnsavedCareInputs() {
+        let name = document.getElementById('care-name')?.value;
+        let temp = document.getElementById('care-temp')?.value;
+        let region = document.getElementById('care-region')?.value;
+        let humidity = document.getElementById('care-humidity')?.value;
+        let stage = document.getElementById('care-stage')?.value;
+        if(name !== undefined) unsavedCareInputs = { name, temp, region, humidity, stage };
+    }
+    function restoreCareInputs() {
+        let nameInp = document.getElementById('care-name');
+        let tempInp = document.getElementById('care-temp');
+        let regionInp = document.getElementById('care-region');
+        let humInp = document.getElementById('care-humidity');
+        let stageInp = document.getElementById('care-stage');
+        if(nameInp) nameInp.value = unsavedCareInputs.name || '';
+        if(tempInp) tempInp.value = unsavedCareInputs.temp || '22';
+        if(regionInp) regionInp.value = unsavedCareInputs.region || '南方';
+        if(humInp) humInp.value = unsavedCareInputs.humidity || '中性';
+        if(stageInp) stageInp.value = unsavedCareInputs.stage || '成长期';
+    }
+    
+    function renderCare(container) {
+        container.innerHTML = `
+            <div class="p-5 space-y-4">
+                <div class="bg-white p-5 rounded-2xl shadow-sm">
+                    <h2 class="font-bold text-lg flex gap-2"><i data-lucide="droplets"></i> 智能养护顾问</h2>
+                    <div class="space-y-3 mt-3">
+                        <input type="text" id="care-name" placeholder="植物名 (如：龟背竹)" class="w-full p-3 bg-slate-50 rounded-xl">
+                        <div class="flex gap-2"><div class="flex-1"><label class="text-xs">🌡️温度℃</label><input type="number" id="care-temp" class="w-full p-2 bg-slate-50 rounded-lg"></div><div class="flex-1"><label class="text-xs">📍地区</label><select id="care-region" class="w-full p-2 bg-slate-50 rounded-lg"><option>北方</option><option>南方</option></select></div></div>
+                        <div class="flex gap-2"><div class="flex-1"><label class="text-xs">💧湿度倾向</label><select id="care-humidity" class="w-full p-2 bg-slate-50 rounded-lg"><option>干燥</option><option selected>中性</option><option>湿润</option></select></div><div class="flex-1"><label class="text-xs">🌿生长阶段</label><input type="text" id="care-stage" placeholder="幼苗/花期" class="w-full p-2 bg-slate-50 rounded-lg"></div></div>
+                        <button onclick="getCareAdvice()" id="careBtn" class="w-full bg-emerald-700 text-white py-3 rounded-xl font-bold">生成养护方案</button>
+                    </div>
+                </div>
+                <!-- 历史记录 -->
+                <div id="careHistoryPanel" class="bg-white/70 rounded-xl p-3 text-xs">
+                    <div class="font-semibold text-slate-500 mb-2 flex items-center gap-1"><i data-lucide="clock"></i> 最近查询历史</div>
+                    <div id="careHistoryList" class="space-y-1 max-h-32 overflow-y-auto"></div>
+                </div>
+                <div id="careResult" class="ai-content"></div>
+            </div>
+        `;
+        lucide.createIcons();
+        restoreCareInputs();
+        renderCareHistory();
+    }
+    
+    function renderCareHistory() {
+        let listDiv = document.getElementById('careHistoryList');
+        if(!listDiv) return;
+        if(careHistory.length === 0) { listDiv.innerHTML = '<div class="text-slate-300 text-center py-2">暂无记录</div>'; return; }
+        listDiv.innerHTML = careHistory.slice(0,5).map((h, idx) => `
+            <div class="history-item p-2 bg-slate-50 rounded-lg cursor-pointer hover:bg-slate-100 flex justify-between items-center" onclick="reloadCareHistory(${idx})">
+                <span class="truncate w-40">${h.plant} | ${h.time}</span>
+                <button onclick="event.stopPropagation(); deleteCareHistoryItem(${idx})" class="text-red-300"><i data-lucide="x" class="w-3 h-3"></i></button>
+            </div>
+        `).join('');
+        lucide.createIcons();
+    }
+    
+    window.reloadCareHistory = async function(idx) {
+        let item = careHistory[idx];
+        if(!item) return;
+        document.getElementById('care-name').value = item.plant;
+        document.getElementById('care-temp').value = item.temp;
+        document.getElementById('care-region').value = item.region;
+        document.getElementById('care-humidity').value = item.humidity;
+        document.getElementById('care-stage').value = item.stage;
+        await getCareAdvice(true);
+    };
+    window.deleteCareHistoryItem = function(idx) {
+        careHistory.splice(idx,1);
+        localStorage.setItem('care_history', JSON.stringify(careHistory));
+        renderCareHistory();
+        showToast("已删除历史");
+    };
+    
+    window.getCareAdvice = async function(skipSave=false) {
+        let plant = document.getElementById('care-name')?.value.trim();
+        if(!plant) return showToast("请输入植物名");
+        let temp = document.getElementById('care-temp')?.value || 22;
+        let region = document.getElementById('care-region')?.value;
+        let humidity = document.getElementById('care-humidity')?.value;
+        let stage = document.getElementById('care-stage')?.value || "成长期";
+        let query = `植物:${plant}，地区:${region}，湿度:${humidity}，温度:${temp}℃，阶段:${stage}。请给出极简养护建议：浇水频率、光照时长、施肥周期。`;
+        let btn = document.getElementById('careBtn');
+        let resDiv = document.getElementById('careResult');
+        btn.disabled = true; btn.innerHTML = "🌐 联网检索中...";
+        let reply = await callAI(query);
+        resDiv.innerHTML = `<div class="bg-white p-4 rounded-xl border border-emerald-100 fade-enter"><div class="text-sm whitespace-pre-wrap">${reply.replace(/\n/g,'<br>')}</div></div>`;
+        btn.disabled = false; btn.innerHTML = "生成养护方案";
+        if(!skipSave) {
+            careHistory.unshift({ plant, temp, region, humidity, stage, time: new Date().toLocaleTimeString(), reply: reply.substring(0,100) });
+            if(careHistory.length > 20) careHistory.pop();
+            localStorage.setItem('care_history', JSON.stringify(careHistory));
+            renderCareHistory();
+        }
+    };
+    
+    // ---------- 病理诊断 (同样三档湿度，历史，输入暂存) ----------
+    function saveUnsavedClinicInputs() {
+        let symptom = document.getElementById('clinic-symptom')?.value;
+        let temp = document.getElementById('clinic-temp')?.value;
+        let region = document.getElementById('clinic-region')?.value;
+        let humidity = document.getElementById('clinic-humidity')?.value;
+        let stage = document.getElementById('clinic-stage')?.value;
+        if(symptom !== undefined) unsavedClinicInputs = { symptom, temp, region, humidity, stage };
+    }
+    function restoreClinicInputs() {
+        let sym = document.getElementById('clinic-symptom');
+        let temp = document.getElementById('clinic-temp');
+        let region = document.getElementById('clinic-region');
+        let hum = document.getElementById('clinic-humidity');
+        let stage = document.getElementById('clinic-stage');
+        if(sym) sym.value = unsavedClinicInputs.symptom || '';
+        if(temp) temp.value = unsavedClinicInputs.temp || '';
+        if(region) region.value = unsavedClinicInputs.region || '南方';
+        if(hum) hum.value = unsavedClinicInputs.humidity || '中性';
+        if(stage) stage.value = unsavedClinicInputs.stage || '';
+    }
+    
+    function renderClinic(container) {
+        container.innerHTML = `
+            <div class="p-5 space-y-4">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border-l-4 border-rose-300">
+                    <h2 class="font-bold text-lg"><i data-lucide="bug"></i> 病理诊断</h2>
+                    <div class="mt-3 space-y-3">
+                        <textarea id="clinic-symptom" placeholder="详细描述病症：叶斑、枯萎、霉层..." class="w-full p-3 bg-slate-50 rounded-xl h-24 text-sm"></textarea>
+                        <div class="flex gap-2"><div class="flex-1"><label class="text-xs">🌡️温度</label><input type="number" id="clinic-temp" class="w-full p-2 bg-slate-50 rounded-lg"></div><div class="flex-1"><label class="text-xs">📍地区</label><select id="clinic-region" class="w-full p-2 bg-slate-50 rounded-lg"><option>北方</option><option>南方</option></select></div></div>
+                        <div class="flex gap-2"><div class="flex-1"><label class="text-xs">💧湿度</label><select id="clinic-humidity" class="w-full p-2 bg-slate-50 rounded-lg"><option>干燥</option><option selected>中性</option><option>湿润</option></select></div><div class="flex-1"><label class="text-xs">🌿生长阶段</label><input type="text" id="clinic-stage" placeholder="例：开花期" class="w-full p-2 bg-slate-50 rounded-lg"></div></div>
+                        <button onclick="getDiagnosis()" id="clinicBtn" class="w-full bg-rose-600 text-white py-3 rounded-xl font-bold">🔬 智能诊断</button>
+                    </div>
+                </div>
+                <div id="clinicHistoryPanel" class="bg-white/70 rounded-xl p-3 text-xs">
+                    <div class="font-semibold text-slate-500 mb-2"><i data-lucide="history"></i> 诊断历史</div>
+                    <div id="clinicHistoryList" class="space-y-1 max-h-32 overflow-y-auto"></div>
+                </div>
+                <div id="clinicResult" class="ai-content"></div>
+            </div>
+        `;
+        lucide.createIcons();
+        restoreClinicInputs();
+        renderClinicHistory();
+    }
+    
+    function renderClinicHistory() {
+        let listDiv = document.getElementById('clinicHistoryList');
+        if(!listDiv) return;
+        if(clinicHistory.length===0) { listDiv.innerHTML='<div class="text-slate-300 text-center py-2">暂无记录</div>'; return; }
+        listDiv.innerHTML = clinicHistory.slice(0,5).map((h,idx)=>`
+            <div class="history-item p-2 bg-slate-50 rounded-lg cursor-pointer flex justify-between items-center" onclick="reloadClinicHistory(${idx})">
+                <span class="truncate w-40">${h.symptom.substring(0,20)} | ${h.time}</span>
+                <button onclick="event.stopPropagation(); deleteClinicHistory(${idx})" class="text-red-300"><i data-lucide="x" class="w-3 h-3"></i></button>
+            </div>
+        `).join('');
+        lucide.createIcons();
+    }
+    window.reloadClinicHistory = async function(idx) {
+        let item = clinicHistory[idx];
+        if(!item) return;
+        document.getElementById('clinic-symptom').value = item.symptom;
+        document.getElementById('clinic-temp').value = item.temp;
+        document.getElementById('clinic-region').value = item.region;
+        document.getElementById('clinic-humidity').value = item.humidity;
+        document.getElementById('clinic-stage').value = item.stage;
+        await getDiagnosis(true);
+    };
+    window.deleteClinicHistory = function(idx) {
+        clinicHistory.splice(idx,1);
+        localStorage.setItem('clinic_history', JSON.stringify(clinicHistory));
+        renderClinicHistory();
+        showToast("已删除");
+    };
+    
+    window.getDiagnosis = async function(skipSave=false) {
+        let symptom = document.getElementById('clinic-symptom')?.value.trim();
+        if(!symptom) return showToast("请描述症状");
+        let temp = document.getElementById('clinic-temp')?.value || "未知";
+        let region = document.getElementById('clinic-region')?.value;
+        let humidity = document.getElementById('clinic-humidity')?.value;
+        let stage = document.getElementById('clinic-stage')?.value || "不详";
+        let query = `【诊断】症状:${symptom}，环境:${region}，湿度:${humidity}，温度:${temp}℃，阶段:${stage}。给出病因+治疗药+养护调整，极简回答。`;
+        let btn = document.getElementById('clinicBtn');
+        let resDiv = document.getElementById('clinicResult');
+        btn.disabled = true; btn.innerHTML = "🔎 联网检索中...";
+        let reply = await callAI(query);
+        resDiv.innerHTML = `<div class="bg-white p-4 rounded-xl border border-rose-100 fade-enter"><div class="text-sm whitespace-pre-wrap">${reply.replace(/\n/g,'<br>')}</div></div>`;
+        btn.disabled = false; btn.innerHTML = "🔬 智能诊断";
+        if(!skipSave) {
+            clinicHistory.unshift({ symptom, temp, region, humidity, stage, time: new Date().toLocaleTimeString(), reply: reply.substring(0,80) });
+            if(clinicHistory.length > 20) clinicHistory.pop();
+            localStorage.setItem('clinic_history', JSON.stringify(clinicHistory));
+            renderClinicHistory();
+        }
+    };
+    
+    // ---------- 社区交流 ----------
+    function renderCommunity(container) {
+        container.innerHTML = `<div class="pb-6"><div class="p-4 sticky top-0 bg-white/80 flex gap-3"><div class="w-8 h-8 bg-emerald-100 rounded-full flex items-center justify-center">🐱</div><div onclick="showPostEditor()" class="flex-1 bg-slate-100 rounded-full px-5 h-10 flex items-center text-slate-400 text-xs cursor-pointer">分享你的养花故事...</div></div>
+        <div class="p-4 space-y-4">${state.posts.map(p=>`<div class="bg-white rounded-2xl p-4 shadow-sm"><div class="flex items-center gap-2"><div class="w-7 h-7 bg-slate-200 rounded-full"></div><span class="font-bold text-sm">${escapeHtml(p.author)}</span></div><p class="text-sm mt-2">${escapeHtml(p.content)}</p>${p.image?`<img src="${p.image}" class="w-full rounded-xl mt-2 max-h-40 object-cover">`:''}<div class="flex gap-4 mt-3 text-slate-400"><button onclick="likePost(${p.id})" class="flex gap-1 ${p.liked?'text-rose-500':''}"><i data-lucide="heart" class="w-4 ${p.liked?'fill-current':''}"></i>${p.likes}</button><button class="flex gap-1"><i data-lucide="message-circle"></i>${p.comments?.length||0}</button></div><div class="mt-3 space-y-1">${(p.comments||[]).map(c=>`<div class="bg-slate-50 p-1 text-xs"><span class="font-bold">花友:</span> ${escapeHtml(c.text)}</div>`).join('')}<div class="flex gap-2 mt-2"><input id="cmt-${p.id}" placeholder="写评论..." class="flex-1 bg-slate-50 rounded-full px-3 py-1 text-xs"><button onclick="addComment(${p.id})" class="text-emerald-600 text-xs">发送</button></div></div></div>`).join('')}</div></div>`;
+        lucide.createIcons();
+    }
+    window.showPostEditor = function() {
+        let c = document.getElementById('main-content');
+        c.innerHTML = `<div class="p-5"><div class="bg-white p-5 rounded-2xl"><div class="flex justify-between"><h3>新动态</h3><button onclick="render()"><i data-lucide="x"></i></button></div><textarea id="newPostContent" class="w-full p-3 bg-slate-50 rounded-xl h-28 mt-2" placeholder="分享心得..."></textarea><div id="postImgPrev"></div><button onclick="document.getElementById('postImgFile').click()" class="text-xs text-emerald-600 mt-2">📷 添加图片</button><input id="postImgFile" type="file" class="hidden" accept="image/*" onchange="previewImg(this,'postImgPrev')"><button onclick="submitPost()" class="w-full bg-emerald-600 text-white py-3 rounded-xl mt-4">发布</button></div></div>`;
+        lucide.createIcons();
+    };
+    window.submitPost = function() {
+        let content = document.getElementById('newPostContent')?.value;
+        let img = document.querySelector('#postImgPrev img')?.src;
+        if(!content && !img) return;
+        state.posts.unshift({ id: Date.now(), author: "我", content: content||"分享图片", image: img||null, likes:0, liked:false, comments:[] });
+        localStorage.setItem('v2_posts', JSON.stringify(state.posts));
+        render(); showToast("发布成功");
+    };
+    window.likePost = (id) => { state.posts = state.posts.map(p=>{ if(p.id===id){ p.liked=!p.liked; p.likes+=p.liked?1:-1; } return p;}); localStorage.setItem('v2_posts', JSON.stringify(state.posts)); render(); };
+    window.addComment = (pid) => { let inp = document.getElementById(`cmt-${pid}`); if(!inp?.value) return; state.posts = state.posts.map(p=>{ if(p.id===pid){ p.comments=p.comments||[]; p.comments.push({text: inp.value, time: new Date().toLocaleTimeString()}); } return p;}); localStorage.setItem('v2_posts', JSON.stringify(state.posts)); render(); showToast("评论已加"); };
+    function escapeHtml(str) { return str?.replace(/[&<>]/g, function(m){if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}) || ''; }
+    window.previewImg = function(input, targetId) {
+        if(input.files && input.files[0]) {
+            let reader = new FileReader();
+            reader.onload = e => { document.getElementById(targetId).innerHTML = `<img src="${e.target.result}" class="w-full rounded-xl max-h-32 object-cover">`; };
+            reader.readAsDataURL(input.files[0]);
+        }
+    };
+    
+    // API Key管理
+    function saveApiKey() {
+        let newKey = document.getElementById('apiKeyInput').value.trim();
+        if(newKey) { apiKey = newKey; localStorage.setItem('zhipu_api_key', newKey); showToast("API Key已更新"); closeApiModal(); }
+        else showToast("无效Key");
+    }
+    function closeApiModal() { document.getElementById('apiModal').classList.add('hidden'); }
+    document.getElementById('apiKeyBtn')?.addEventListener('click', ()=>{
+        document.getElementById('apiKeyInput').value = apiKey;
+        document.getElementById('apiModal').classList.remove('hidden');
+        lucide.createIcons();
+    });
+    window.closeApiModal = closeApiModal;
+    window.saveApiKey = saveApiKey;
+    
+    window.onload = () => { render(); if(apiKey) showToast("AI养花已就绪", 1200); else showToast("请配置API Key", 2000); };
+</script>
+</body>
+</html>
